@@ -23,6 +23,7 @@ export interface STM32Config {
     buildDirectory: string;
     
     // 文件配置
+    binFile: string;
     elfFile: string;
     svdFile: string;
 }
@@ -43,6 +44,7 @@ export function getSTM32Config(): STM32Config {
         debugInterface: config.get<string>('debugInterface') || 'stlink',
         buildType: config.get<string>('buildType') || 'Debug',
         buildDirectory: config.get<string>('buildDirectory') || 'build',
+        binFile: config.get<string>('binFile') || '',
         elfFile: config.get<string>('elfFile') || '',
         svdFile: config.get<string>('svdFile') || ''
     };

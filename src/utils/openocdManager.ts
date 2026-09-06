@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { spawn, ChildProcess } from 'child_process';
+import { getSelectedBin } from './binSelector';
 import { CMakeBuilder } from './cmakeBuilder';
 import { getSTM32Config } from './config';
 import { getOpenOCDTarget, getInterfaceConfig, getFlashAddress, quotePath, toForwardSlash } from './chipUtils';
@@ -123,7 +124,7 @@ export class OpenOCDManager {
         const config = getSTM32Config();
         
         // 查找可烧录的文件 (ELF, BIN, HEX)
-        let flashFile: string | undefined = config.elfFile;
+        let flashFile: string | undefined = await getSelectedBin() || config.elfFile;
         if (!flashFile) {
             flashFile = await this.selectFlashFile();
         }
@@ -140,6 +141,12 @@ export class OpenOCDManager {
             }
         }
 
+        try {
+            const stat = await vscode.workspace.fs.stat(vscode.Uri.file(flashFile));
+            if (!(stat.type & vscode.FileType.File)) { throw new Error('不是文件'); }
+        } catch {
+            throw new Error(`烧录文件不存在或不可读取: ${flashFile}，请在项目信息中重新选择 BIN`);
+        }
         this.outputChannel.appendLine(`下载程序: ${flashFile}`);
 
         const target = getOpenOCDTarget(config.selectedChip);
@@ -155,7 +162,7 @@ export class OpenOCDManager {
         args.push('-f', `target/${target}.cfg`);
         
         // 将路径转换为正斜杠格式
-        const flashFilePath = toForwardSlash(flashFile);
+        const flashFilePath = toForwardSlash(flashFile).replace(/["$\[\]]/g, '\\$&');
         
         const ext = path.extname(flashFile).toLowerCase();
         if (ext === '.bin') {
@@ -167,7 +174,7 @@ export class OpenOCDManager {
             args.push('-c', `program "${flashFilePath}" verify reset exit`);
         }
 
-        const openocdCmd = quotePath(config.openocdPath);
+        const openocdCmd = config.openocdPath;
         this.outputChannel.appendLine(`执行 OpenOCD 烧录: ${quotePath(openocdCmd)} ${args.map(arg => quotePath(arg)).join(' ')}`);
 
         return new Promise((resolve, reject) => {
@@ -194,6 +201,43 @@ export class OpenOCDManager {
                 reject(err);
             });
         });
+    }
+
+    /** OpenOCD flash driver names differ from target configuration names. */
+    async unlockReadProtection(): Promise<boolean> {
+        const config = getSTM32Config();
+        const chip = config.selectedChip.toLowerCase();
+        let driver: string;
+        if (/^stm32f[013]/.test(chip)) { driver = 'stm32f1x'; }
+        else if (/^stm32f[247]/.test(chip)) { driver = 'stm32f2x'; }
+        else if (/^stm32h7/.test(chip)) { driver = 'stm32h7x'; }
+        else if (/^stm32l[01]/.test(chip)) { driver = 'stm32lx'; }
+        else if (/^stm32(g[04]|l[45]|u5|w[bl])/.test(chip)) { driver = 'stm32l4x'; }
+        else { throw new Error('请先选择支持解除读保护的 STM32 芯片型号'); }
+        if (this.isRunning() || vscode.debug.activeDebugSession) {
+            throw new Error('请先停止 OpenOCD 服务和调试会话，再解除读保护');
+        }
+        const confirmed = await vscode.window.showWarningMessage(
+            `解除 ${config.selectedChip} 的读保护可能擦除芯片内全部程序和数据，且无法恢复。RDP Level 2 无法解除。请确认连接的是目标芯片。`,
+            { modal: true }, '确认解除读保护'
+        );
+        if (confirmed !== '确认解除读保护') { return false; }
+        const args: string[] = [];
+        if (config.openocdScriptsPath) { args.push('-s', toForwardSlash(config.openocdScriptsPath)); }
+        args.push('-f', getInterfaceConfig(config.debugInterface),
+            '-f', `target/${getOpenOCDTarget(config.selectedChip)}.cfg`,
+            '-c', 'init', '-c', 'reset halt', '-c', `${driver} unlock 0`, '-c', 'shutdown');
+        this.outputChannel.show();
+        this.outputChannel.appendLine(`解除读保护: ${config.selectedChip} (${driver})`);
+        await new Promise<void>((resolve, reject) => {
+            const process = spawn(config.openocdPath, args);
+            process.stdout?.on('data', data => this.outputChannel.appendLine(data.toString()));
+            process.stderr?.on('data', data => this.outputChannel.appendLine(data.toString()));
+            process.on('error', reject);
+            process.on('close', code => code === 0 ? resolve()
+                : reject(new Error(`OpenOCD 解除读保护失败，退出码: ${code}，请查看输出日志`)));
+        });
+        return true;
     }
 
     /**

@@ -4,6 +4,7 @@
  */
 
 import * as vscode from 'vscode';
+import { selectBinFile } from './utils/binSelector';
 import { CMakeBuilder } from './utils/cmakeBuilder';
 import { OpenOCDManager } from './utils/openocdManager';
 import { STM32ChipSelector } from './utils/chipSelector';
@@ -65,6 +66,13 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.window.registerTreeDataProvider('stm32-actions', actionsProvider)
     );
     
+    const binWatcher = vscode.workspace.createFileSystemWatcher('**/*.[bB][iI][nN]');
+    context.subscriptions.push(
+        binWatcher,
+        binWatcher.onDidCreate(() => projectInfoProvider.refresh()),
+        binWatcher.onDidDelete(() => projectInfoProvider.refresh())
+    );
+
     // 首次启动时检查
     checkAndAutoDetectToolchain(context);
     autoDetectChipOnStartup();
@@ -82,6 +90,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     context.subscriptions.push(
         vscode.workspace.onDidChangeWorkspaceFolders(() => {
+            projectInfoProvider.refresh();
             void updateAllStatusBars();
         })
     );
@@ -166,6 +175,25 @@ function registerCommands(
         })
     );
     
+    context.subscriptions.push(
+        vscode.commands.registerCommand('stm32.selectBin', async () => {
+            try {
+                await selectBinFile();
+            } catch (error) {
+                vscode.window.showErrorMessage(`STM32: 选择 BIN 失败 - ${error}`);
+            }
+        }),
+        vscode.commands.registerCommand('stm32.unlockReadProtection', async () => {
+            try {
+                if (await openocdManager!.unlockReadProtection()) {
+                    vscode.window.showInformationMessage('STM32: 解除读保护命令已完成，请将芯片断电重启后再烧录。');
+                }
+            } catch (error) {
+                vscode.window.showErrorMessage(`STM32: 解除读保护失败 - ${error}`);
+            }
+        })
+    );
+
     // 下载程序
     context.subscriptions.push(
         vscode.commands.registerCommand('stm32.flash', async () => {

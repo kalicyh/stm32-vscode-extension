@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
+import { getSelectedBin } from '../utils/binSelector';
 import { getSTM32Config } from '../utils/config';
 import { DEBUGGER_NAMES } from '../utils/chipUtils';
 
@@ -27,7 +29,7 @@ export class ProjectInfoProvider implements vscode.TreeDataProvider<SidebarItem>
 
     getTreeItem(el: SidebarItem): SidebarItem { return el; }
 
-    getChildren(): SidebarItem[] {
+    async getChildren(): Promise<SidebarItem[]> {
         const config = getSTM32Config();
         const items: SidebarItem[] = [];
 
@@ -44,6 +46,12 @@ export class ProjectInfoProvider implements vscode.TreeDataProvider<SidebarItem>
         const btItem = new SidebarItem('$(gear) 构建类型', config.buildType, 'stm32.selectBuildType');
         btItem.tooltip = '点击选择构建类型';
         items.push(btItem);
+
+        const bin = await getSelectedBin();
+        const binItem = new SidebarItem('烧录 BIN', bin ? path.basename(bin) : '未找到 BIN，点击选择', 'stm32.selectBin');
+        binItem.iconPath = new vscode.ThemeIcon('file-binary');
+        binItem.tooltip = bin ? `${bin}\n点击更换烧录 BIN 文件` : '点击选择烧录 BIN 文件';
+        items.push(binItem);
 
         items.push(new SidebarItem('$(search) 工具链', '', 'stm32.detectToolchain'));
 
@@ -79,6 +87,7 @@ export class ActionsProvider implements vscode.TreeDataProvider<SidebarItem> {
             new SidebarItem('$(trash) 清理项目', '', 'stm32.clean'),
             new SidebarItem('$(refresh) 重新编译', '', 'stm32.rebuild'),
             new SidebarItem('$(arrow-down) 烧录程序', '', 'stm32.flash'),
+            new SidebarItem('解除读保护', '', 'stm32.unlockReadProtection'),
             new SidebarItem('$(debug-alt) 开始调试', '', 'stm32.debug'),
             new SidebarItem('$(file-binary) 生成 BIN/HEX', '', 'stm32.generateBin'),
         ];

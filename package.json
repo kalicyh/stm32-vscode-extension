@@ -88,6 +88,16 @@
         "category": "STM32"
       },
       {
+        "command": "stm32.selectBin",
+        "title": "STM32: 选择烧录 BIN 文件",
+        "category": "STM32"
+      },
+      {
+        "command": "stm32.unlockReadProtection",
+        "title": "STM32: 解除读保护",
+        "category": "STM32"
+      },
+      {
         "command": "stm32.flash",
         "title": "STM32: 下载程序到芯片",
         "category": "STM32",
@@ -255,6 +265,12 @@
           "type": "string",
           "default": "build",
           "description": "构建输出目录"
+        },
+        "stm32.binFile": {
+          "type": "string",
+          "default": "",
+          "description": "烧录 BIN 文件路径（相对于工作区或绝对路径）；为空时自动选择当前构建目录中的 BIN",
+          "scope": "resource"
         },
         "stm32.elfFile": {
           "type": "string",
