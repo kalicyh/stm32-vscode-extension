@@ -402,6 +402,14 @@
       "openocdTarget": "stm32l1"
     },
     {
+      "name": "STM32L452RE",
+      "family": "STM32L4",
+      "core": "Cortex-M4",
+      "flashSize": "512KB",
+      "ramSize": "160KB",
+      "openocdTarget": "stm32l4x"
+    },
+    {
       "name": "STM32L431RC",
       "family": "STM32L4",
       "core": "Cortex-M4",

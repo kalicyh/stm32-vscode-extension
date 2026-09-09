@@ -183,6 +183,30 @@ function registerCommands(
                 vscode.window.showErrorMessage(`STM32: 选择 BIN 失败 - ${error}`);
             }
         }),
+        vscode.commands.registerCommand('stm32.extractFirmware', async () => {
+            try {
+                const name = getSTM32Config().selectedChip;
+                const chip = chipSelector.getChipByName(name);
+                const capacity = chip?.flashSize.match(/^(\d+)(KB|MB)$/i);
+                const sizeKiB = capacity ? Number(capacity[1]) * (capacity[2].toUpperCase() === 'MB' ? 1024 : 1)
+                    : /^STM32L452RE(?:T6)?$/i.test(name) ? 512 : undefined;
+                const file = await openocdManager!.extractFirmware(sizeKiB);
+                if (file) {
+                    vscode.window.showInformationMessage(`STM32: 固件已提取到 ${file}。芯片已暂停，请复位或重新上电恢复运行。`);
+                }
+            } catch (error) {
+                vscode.window.showErrorMessage(`STM32: 提取固件失败 - ${error}`);
+            }
+        }),
+        vscode.commands.registerCommand('stm32.lockReadProtection', async () => {
+            try {
+                if (await openocdManager!.lockReadProtection()) {
+                    vscode.window.showInformationMessage('STM32: 开启读保护命令已完成，请将芯片断电重启使设置生效。');
+                }
+            } catch (error) {
+                vscode.window.showErrorMessage(`STM32: 开启读保护失败 - ${error}`);
+            }
+        }),
         vscode.commands.registerCommand('stm32.unlockReadProtection', async () => {
             try {
                 if (await openocdManager!.unlockReadProtection()) {

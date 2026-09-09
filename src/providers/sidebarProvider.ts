@@ -87,6 +87,8 @@ export class ActionsProvider implements vscode.TreeDataProvider<SidebarItem> {
             new SidebarItem('$(trash) 清理项目', '', 'stm32.clean'),
             new SidebarItem('$(refresh) 重新编译', '', 'stm32.rebuild'),
             new SidebarItem('$(arrow-down) 烧录程序', '', 'stm32.flash'),
+            new SidebarItem('提取固件（BIN）', '', 'stm32.extractFirmware'),
+            new SidebarItem('开启读保护', '', 'stm32.lockReadProtection'),
             new SidebarItem('解除读保护', '', 'stm32.unlockReadProtection'),
             new SidebarItem('$(debug-alt) 开始调试', '', 'stm32.debug'),
             new SidebarItem('$(file-binary) 生成 BIN/HEX', '', 'stm32.generateBin'),
